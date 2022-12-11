@@ -1,0 +1,6 @@
+.DS_store
+svn
+sketch
+node_modules
+vendor
+publish

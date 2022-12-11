@@ -1,0 +1,47 @@
+{
+	"name": "custom-css-for-blocks",
+	"version": "1.0.0",
+	"author": "WPBits.net <info@wpbits.net>",
+	"homepage": "https://wpbits.net/custom-css-for-blocks/",
+	"private": true,
+	"main": "src/index.js",
+	"scripts": {
+		"build": "wp-scripts build",
+		"check-engines": "wp-scripts check-engines",
+		"check-licenses": "wp-scripts check-licenses",
+		"format": "wp-scripts format",
+		"lint:css": "wp-scripts lint-style",
+		"lint:js": "wp-scripts lint-js",
+		"lint:md:docs": "wp-scripts lint-md-docs",
+		"lint:md:js": "wp-scripts lint-md-js",
+		"lint:pkg-json": "wp-scripts lint-pkg-json",
+		"packages-update": "wp-scripts packages-update",
+		"plugin-zip": "wp-scripts plugin-zip",
+		"start": "wp-scripts start",
+		"test:e2e": "wp-scripts test-e2e",
+		"test:unit": "wp-scripts test-unit-js",
+		"wp-env": "wp-env",
+		"wp-env-start": "wp-env start",
+		"wp-env-stop": "wp-env stop",
+		"wpcs:check": "composer wpcs:check",
+		"wpcs:fix": "composer wpcs:fix",
+		"make-pot": "./vendor/bin/wp i18n make-pot . --skip-audit --exclude=\"publish,build,node_modules,vendor,php-vendor\"  languages/custom-css-for-blocks.pot",
+		"grunt-publish": "grunt publish",
+		"publish" : "npm run build && npm run grunt-publish"
+	},
+	"devDependencies": {
+		"@uiw/react-codemirror": "^4.5.1",
+		"@wordpress/scripts": "^22.0.1",
+		"grunt": "^1.4.1",
+		"grunt-contrib-clean": "^2.0.0",
+		"grunt-contrib-copy": "^1.0.0",
+		"grunt-mkdir": "^1.1.0",
+		"grunt-zip": "^0.18.2"
+	},
+	"dependencies": {
+		"@codemirror/lang-css": "^0.19.3",
+		"@multiprocess/cssplus": "^0.4.0",
+		"classnames": "^2.3.1",
+		"grunt-wp-i18n": "^1.0.3"
+	}
+}

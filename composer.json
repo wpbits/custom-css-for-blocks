@@ -1,0 +1,18 @@
+{
+    "name": "ccfg/custom-css-for-blocks",
+	"type": "package",
+	"require-dev": {
+		"dealerdirect/phpcodesniffer-composer-installer": "^0.7.1",
+		"wp-coding-standards/wpcs" : "*",
+		"wp-cli/wp-cli-bundle": "*"
+	},
+	"scripts": { 
+		"wpcs:check": "@php ./vendor/bin/phpcs --standard=WordPress --extensions=php --ignore=./build,./php-vendor,./vendor,./node_modules ./",
+		"wpcs:fix": "@php ./vendor/bin/phpcbf --standard=WordPress --extensions=php --ignore=./build,./php-vendor,./vendor,./node_modules ./"
+	},
+    "config": {
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true
+        }
+    }
+}

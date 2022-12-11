@@ -1,0 +1,17 @@
+{
+    "config": {
+		"WP_DEBUG": true,
+        "WP_DEBUG_LOG": true
+	},
+    "phpVersion": "8.0",
+    "plugins": [ "." ],
+    "port": 5500,
+    "env": {
+        "tests": {
+            "port": 5501
+        }
+    },
+    "mappings": {
+      "php.ini": "./php.ini"
+    }
+}
