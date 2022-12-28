@@ -2,8 +2,9 @@ const { compose } = wp.compose;
 const { withSelect, withDispatch } = wp.data;
 const { PluginDocumentSettingPanel } = wp.editPost;
 const { __ } = wp.i18n;
-const { PanelBody, Notice, Spinner } = wp.components;
+const {  Notice, Spinner } = wp.components;
 const { Fragment, useEffect, useState } = wp.element;
+const { getCurrentUser, getUser } = wp.data.select('core');
 import apiFetch from '@wordpress/api-fetch';
 import CodeMirror from '@uiw/react-codemirror';
 import { css } from '@codemirror/lang-css';
@@ -15,23 +16,36 @@ const PluginDocumentSettingPanelDemo = ({
 }) => {
 	const rawCSS = postMeta.ccfg_rawCSS || '';
 	const customCSS = postMeta.ccfg_customCSS || '';
-
 	const [compileStatus, setCompileStatus] = useState('compiled');
+	const currentUser = getCurrentUser();
+	const user = getUser(currentUser.id);
+	const [canUseCSS, setCanUseCSS] = useState(false);	
 	const [getCSS, setCSS] = useState(rawCSS);
 
+	// check if user can use custom css
+	useEffect(() => {
+		if (user && user.capabilities && user.capabilities[ccfg.roleBlocks]) {
+			setCanUseCSS(true);
+		}
+	}, [user]);
+
+	// get compiled css
 	useEffect(() => {
 		const delayDebounceFn = setTimeout(() => {
 			const scss = getCSS;
 
 			setCompileStatus('compiling');
-
-			apiFetch({
-				path: '/ccfg-rest/scss/',
-				method: 'POST',
-				data: { scss },
-			}).then((res) => {
-				updateCSS(res);
-			});
+ 
+				apiFetch({
+					path: '/ccfg-rest/scss/',
+					method: 'POST',
+					data: { scss },
+				}).then((res) => {
+					updateCSS(res);
+				}).catch(e => {	
+					console.log(e);
+				});
+		 
 		}, 1500);
 
 		return () => clearTimeout(delayDebounceFn);
@@ -79,13 +93,22 @@ const PluginDocumentSettingPanelDemo = ({
 					)}
 				</p>
 
+				{!canUseCSS && (
+							<Notice status="error" isDismissible={false}>
+							{__(
+								"You don't have permission to use this feature. Please contact your administrator.",
+								'custom-css-for-blocks'
+							)}
+							</Notice>
+						)}
+						
 				{compileStatus === 'error' && (
 					<Notice status='error' isDismissible={false}>
 						{__('Invalid SASS code.', 'custom-css-for-blocks')}
 					</Notice>
 				)}
 
-				{compileStatus === 'compiling' && (
+				{compileStatus === 'compiling' && canUseCSS && (
 					<div style={{ position: 'absolute', zIndex: 10 }}>
 						<Spinner />
 					</div>
@@ -96,6 +119,7 @@ const PluginDocumentSettingPanelDemo = ({
 					height='200px'
 					extensions={[css({})]}
 					onChange={(value) => setCSS(value)}
+					editable={canUseCSS}
 				/>
 			</PluginDocumentSettingPanel>
 		</Fragment>

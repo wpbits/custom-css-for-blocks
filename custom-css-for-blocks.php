@@ -20,6 +20,21 @@
 defined( 'ABSPATH' ) || exit;
 
 /**
+ * Define default role 
+ */
+if( ! defined( 'CCFG_ROLE_META' ) ){
+	define( 'CCFG_ROLE_META', 'edit_theme_options' );
+}
+
+if( ! defined( 'CCFG_ROLE_BLOCKS' ) ){
+	define( 'CCFG_ROLE_BLOCKS', 'edit_theme_options' );
+}
+
+if( ! defined( 'CCFG_DISALLOW_FILE_EDIT' ) ){
+	define( 'CCFG_DISALLOW_FILE_EDIT', defined( 'DISALLOW_FILE_EDIT' ) ? DISALLOW_FILE_EDIT : true );
+}
+
+/**
  * Load plugin text domain
  */
 function ccfg_load_plugin_textdomain() {
@@ -27,7 +42,6 @@ function ccfg_load_plugin_textdomain() {
 }
 
 add_action( 'plugins_loaded', 'ccfg_load_plugin_textdomain', 10 );
-
 
 /**
  * Register block scripts
@@ -54,13 +68,23 @@ function ccfg_register_block_scripts() {
 		true
 	);
 
+	// add script params to custom-css-for-blocks-js
+	wp_localize_script(
+		'custom-css-for-blocks-js',
+		'ccfg',
+		array(
+			'roleMeta' => CCFG_ROLE_META,
+			'roleBlocks' => CCFG_ROLE_BLOCKS,
+			'disallowFileEdit' => CCFG_DISALLOW_FILE_EDIT,
+		)
+	);
+
 	if ( function_exists( 'wp_set_script_translations' ) ) {
 		wp_set_script_translations( 'custom-css-for-blocks-js', 'custom-css-for-blocks', plugin_dir_path( plugin_basename( __FILE__ ) ) . 'languages' );
 	}
 
 }
 add_action( 'init', 'ccfg_register_block_scripts', 10 );
-
 
 /**
  * Enqueue Block Editor Assets
@@ -101,7 +125,6 @@ function ccfg_get_css( $blocks ) {
 	return $css;
 }
 
- 
 /**
  * Get custom css of a post
  *
@@ -134,7 +157,6 @@ function ccfg_get_custom_css( $post_id = '' ) {
 	return ccfg_get_css( $blocks );
 }
 
-
 /**
  * Get global custom css of a post
  *
@@ -158,7 +180,9 @@ function ccfg_get_global_css(){
 	return $css;
 }
 
-
+/**
+ * Print custom css of a post
+ */
 add_action(
 	'wp_print_styles',
 	function() {
@@ -166,6 +190,11 @@ add_action(
 		$global_CSS = ccfg_get_global_css();
 		$all_CSS = ccfg_minify_css( $block_CSS . $global_CSS );
 
+		// Markup is not allowed in CSS.				
+		if ( ! ccfg_check_markup( $all_CSS ) ) {						
+			return null;
+		}
+				
 		wp_add_inline_style( 'global-styles', $all_CSS );
 	}
 );
@@ -176,11 +205,8 @@ add_action(
  */
 function ccfg_rest_route() {
 
-	if ( ! is_user_logged_in() ) {
-		return;
-	}
-
-	if ( ! current_user_can( 'edit_posts' ) ) {
+	//do not register rest route if user is not logged in or user is not admin and has rights to edit theme files
+	if( ! is_user_logged_in() ){
 		return;
 	}
 
@@ -200,13 +226,23 @@ function ccfg_rest_route() {
 					$compiler = new \ScssPhp\ScssPhp\Compiler();
 
 					$css = $compiler->compileString( $data['scss'] )->getCss();
+					
+					// Markup is not allowed in CSS.	
+					if( ! ccfg_check_markup( $css ) ){
+						return rest_ensure_response( 'error' );
+					}
+
 					return rest_ensure_response( $css );
+
 				} catch ( \Exception $e ) {
 					return rest_ensure_response( 'error' );
 				}
 
 			},
-			'permission_callback' => '__return_true',
+			// extra security.
+			'permission_callback' => function(){
+				return is_user_logged_in() && current_user_can( CCFG_ROLE_BLOCKS ) && CCFG_DISALLOW_FILE_EDIT;
+			},
 		)
 	);
 
@@ -222,15 +258,53 @@ function ccfg_register_post_meta() {
         'show_in_rest' => true,
         'single' => true,
         'type' => 'string',
+		'sanitize_callback' => 'ccfg_meta_sanitize',
+		'authorize_callback' => 'ccfg_meta_authorize',
     ) );
 
 	register_post_meta( '', 'ccfg_customCSS', array(
         'show_in_rest' => true,
         'single' => true,
         'type' => 'string',
+		'sanitize_callback' => 'ccfg_meta_sanitize',
+		'authorize_callback' => 'ccfg_meta_authorize',
     ) );
 }
 add_action( 'init', 'ccfg_register_post_meta' );
+
+/**
+ * Check if user is allowed to edit meta
+ */
+function ccfg_meta_authorize( $check, $object, $meta_key, $request ) {
+	if( ! current_user_can( CCFG_ROLE_META ) ){
+		return false;
+	}
+	return true;
+}
+
+/**
+ * Sanitize the CSS output
+ */
+function ccfg_meta_sanitize( $check ) {
+	try {
+		
+		// Markup is not allowed in CSS.				
+		if ( ! ccfg_check_markup( $check ) ) {						
+			return null;
+		}
+
+		require_once 'php-vendor/scssphp/scss.inc.php';
+		$compiler = new \ScssPhp\ScssPhp\Compiler();
+
+		$css = $compiler->compileString( $check )->getCss();		
+
+		return $css;
+
+	} catch ( \Exception $e ) {
+		//the code is not valid scss
+		return null;
+	}
+}
 
 /**
  * Minify CSS
@@ -261,3 +335,15 @@ function ccfg_minify_css($css) {
 	return $css;
   }
   
+
+
+/**
+ * Markup check function for the custom CSS
+ */
+function ccfg_check_markup( $check ) {
+	// Markup is not allowed in CSS.				
+	if ( preg_match( '#</?\w+#', $check ) ) {						
+		return false;
+	}
+	return $check;
+}

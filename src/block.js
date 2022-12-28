@@ -3,6 +3,7 @@ const { createHigherOrderComponent } = wp.compose;
 const { Fragment, useEffect, useState } = wp.element;
 const { InspectorControls } = wp.blockEditor;
 const { PanelBody, Notice, Spinner } = wp.components;
+const { getCurrentUser, getUser } = wp.data.select('core');
 
 import {hasBlockSupport} from '@wordpress/blocks';
 import { __ } from '@wordpress/i18n';
@@ -52,6 +53,7 @@ const withInspectorControls = createHigherOrderComponent((BlockEdit) => {
 			'customClassName',
 			true
 		);
+
 		
 		if (props.attributes.ref || ! hasCustomClassName) {
 			return <BlockEdit {...props} />;
@@ -61,9 +63,20 @@ const withInspectorControls = createHigherOrderComponent((BlockEdit) => {
 		const { customCSS, rawCSS, className } = attributes;
 		const uniqueClassName = 'ccfg-unique-' + clientId.substr(2, 9);
 		const [compileStatus, setCompileStatus] = useState(0);
-
+		const currentUser = getCurrentUser();
+		const user = getUser(currentUser.id);
+		const [canUseCSS, setCanUseCSS] = useState(false);
 		const [getCSS, setCSS] = useState(rawCSS);
 
+
+		// check if user can use custom css
+		useEffect(() => {
+			if (user && user.capabilities && user.capabilities[ccfg.roleBlocks]) {
+				setCanUseCSS(true);
+			}
+		}, [user]);
+
+		// get compiled css
 		useEffect(() => {
 			const delayDebounceFn = setTimeout(() => {
 				const scss = `.${uniqueClassName}{${getCSS}}`;
@@ -76,12 +89,16 @@ const withInspectorControls = createHigherOrderComponent((BlockEdit) => {
 					data: { scss },
 				}).then((res) => {
 					updateCSS(res);
+				}).catch(e => {	
+					console.log(e);
 				});
+
 			}, 1500);
 
 			return () => clearTimeout(delayDebounceFn);
 		}, [getCSS]);
 
+		
 		/**
 		 * Manage classes for duplicated/pasted items
 		 */
@@ -184,6 +201,15 @@ const withInspectorControls = createHigherOrderComponent((BlockEdit) => {
 							)}
 						</p>
 
+						{!canUseCSS && (
+							<Notice status="error" isDismissible={false}>
+							{__(
+								"You don't have permission to use this feature. Please contact your administrator.",
+								'custom-css-for-blocks'
+							)}
+							</Notice>
+						)}
+
 						{compileStatus === 'error' && (
 							<Notice status="error" isDismissible={false}>
 								{__(
@@ -193,7 +219,7 @@ const withInspectorControls = createHigherOrderComponent((BlockEdit) => {
 							</Notice>
 						)}
 
-						{compileStatus === 'compiling' && (
+						{compileStatus === 'compiling' && canUseCSS && (
 							<div style={{ position: 'absolute', zIndex: 10 }}>
 								<Spinner />
 							</div>
@@ -204,6 +230,7 @@ const withInspectorControls = createHigherOrderComponent((BlockEdit) => {
 							height="200px"
 							extensions={[css({})]}
 							onChange={(value) => setCSS(value)}
+							editable = {canUseCSS} 
 						/>
 					</PanelBody>
 				</InspectorControls>
